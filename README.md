@@ -1,21 +1,17 @@
-#  Steam Review Sentiment ETL Pipeline
+# 🎮 Steam Review Sentiment ETL Pipeline
 
-A PySpark-powered ETL pipeline that extracts reviews for the **Top 50 most-reviewed Steam games**, scores them with VADER sentiment analysis, and loads structured results into **PostgreSQL**.
+An end-to-end ETL pipeline that extracts reviews for the **Top 50 most-reviewed Steam games**, scores them with VADER sentiment analysis, and loads structured results into a **SQLite database**.
 
 ---
 
 ## 📐 Architecture
-
-```
 Steam API (SteamSpy + Store Reviews)
-        ↓  EXTRACT
-  Raw games + reviews (JSON)
-        ↓  TRANSFORM (PySpark + VADER)
-  Cleaned DataFrames + Sentiment Scores
-        ↓  LOAD (JDBC)
-  PostgreSQL Tables
-```
-
+↓  EXTRACT
+Raw games + reviews (JSON)
+↓  TRANSFORM (Pandas + VADER NLP)
+Cleaned DataFrames + Sentiment Scores
+↓  LOAD
+SQLite Database (steam_etl.db)
 ### Tables Created
 
 | Table | Description |
@@ -26,114 +22,74 @@ Steam API (SteamSpy + Store Reviews)
 
 ---
 
-## 🚀 Setup Instructions
+## 🛠️ Tech Stack
 
-### Prerequisites
-- Python 3.10+
-- Java 11+ (required for PySpark) → [Download](https://adoptium.net/)
-- Docker Desktop → [Download](https://www.docker.com/products/docker-desktop/)
-
----
-
-### Step 1 — Start PostgreSQL with Docker
-
-```bash
-docker-compose up -d
-```
-
-This spins up a PostgreSQL instance at `localhost:5432` with:
-- **DB:** `steam_db`
-- **User:** `etl_user`
-- **Password:** `etl_pass`
-
-Verify it's running:
-```bash
-docker ps
-```
+| Tool | Purpose |
+|---|---|
+| Python | Core language |
+| Pandas | Data transformation |
+| VADER Sentiment | NLP sentiment scoring (-1 to +1) |
+| SQLite | Local database, zero config needed |
+| Steam API + SteamSpy API | Real data source |
+| Docker | Used during development for PostgreSQL |
 
 ---
 
-### Step 2 — Install Python dependencies
+## 🚀 How to Run
 
+### Step 1 — Clone the repo
 ```bash
-# Create virtual environment (recommended)
-python -m venv venv
-source venv/bin/activate        # Mac/Linux
-venv\Scripts\activate           # Windows
+git clone https://github.com/dk845/steam-etl-pipeline.git
+cd steam-etl-pipeline
+```
 
-# Install packages
+### Step 2 — Install dependencies
+```bash
 pip install -r requirements.txt
 ```
 
----
-
-### Step 3 — Download PostgreSQL JDBC Driver
-
-PySpark needs a JDBC driver to talk to PostgreSQL:
-
-```bash
-# Mac/Linux
-curl -o postgresql-42.7.3.jar https://jdbc.postgresql.org/download/postgresql-42.7.3.jar
-
-# Or download manually from:
-# https://jdbc.postgresql.org/download/
-```
-
-Set the JDBC driver path (add to your shell profile or run before executing):
-```bash
-export PYSPARK_SUBMIT_ARGS="--jars postgresql-42.7.3.jar pyspark-shell"
-```
-
----
-
-### Step 4 — Run the Pipeline
-
+### Step 3 — Run the pipeline
 ```bash
 python main.py
 ```
 
-You'll see logs like:
-```
-2024-01-15 10:23:01 | INFO     | main | [STEP 1/3] EXTRACT
-2024-01-15 10:23:01 | INFO     | extractor | Fetching top 50 most reviewed games...
-...
-2024-01-15 10:25:44 | INFO     | main | [STEP 2/3] TRANSFORM
-...
-2024-01-15 10:26:10 | INFO     | main | [STEP 3/3] LOAD
-...
-2024-01-15 10:26:30 | INFO     | main | Pipeline completed in 209.3s
+The pipeline will:
+1. Fetch top 50 Steam games from SteamSpy API
+2. Pull 100 reviews per game (~5000 total)
+3. Score each review with VADER sentiment
+4. Save all results to `steam_etl.db`
+
+---
+
+## 🔍 Query the Results
+
+```python
+import pandas as pd
+from sqlalchemy import create_engine
+
+engine = create_engine("sqlite:///steam_etl.db")
+
+# Top games by sentiment
+df = pd.read_sql("""
+    SELECT game_name, avg_sentiment_score, sentiment_category,
+           positive_count, negative_count
+    FROM agg_game_sentiment
+    ORDER BY avg_sentiment_score DESC
+""", engine)
+
+print(df)
 ```
 
 ---
 
-### Step 5 — Query the Results
+## 📈 Sample Output
 
-Connect to PostgreSQL:
-```bash
-docker exec -it steam_etl_db psql -U etl_user -d steam_db
-```
-
-Sample queries:
-```sql
--- Top 10 games by average sentiment
-SELECT game_name, avg_sentiment_score, sentiment_category, total_reviews_fetched
-FROM agg_game_sentiment
-ORDER BY avg_sentiment_score DESC
-LIMIT 10;
-
--- Most controversial games (mixed sentiment)
-SELECT game_name, positive_count, negative_count, avg_sentiment_score
-FROM agg_game_sentiment
-WHERE sentiment_category = 'Mixed'
-ORDER BY total_reviews_fetched DESC;
-
--- Reviews from heavy players only
-SELECT game_name, review_text, sentiment_label, playtime_hours
-FROM fact_reviews
-WHERE playtime_hours > 500
-ORDER BY sentiment_score ASC
-LIMIT 20;
-```
+| Game | Avg Sentiment | Category |
+|---|---|---|
+| Baldur's Gate 3 | 0.50 | Positive |
+| Red Dead Redemption 2 | 0.46 | Positive |
+| Cyberpunk 2077 | 0.45 | Positive |
+| War Thunder | -0.12 | Negative |
 
 ---
 
@@ -142,12 +98,3 @@ LIMIT 20;
 Edit `config/config.yaml` to change:
 - Number of games (`top_n_games`)
 - Reviews per game (`reviews_per_game`)
-- Database credentials
-
----
-
-## 🛑 Teardown
-
-```bash
-docker-compose down -v   # stops and removes DB volume
-```
