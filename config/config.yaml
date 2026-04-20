@@ -1,0 +1,20 @@
+database:
+  host: localhost
+  port: 5432
+  name: steam_db
+  user: etl_user
+  password: etl_pass
+
+steam_api:
+  base_url: "https://store.steampowered.com/appreviews"
+  top_games_url: "https://steamspy.com/api.php"
+  reviews_per_game: 100        # reviews to fetch per game
+  top_n_games: 50              # top N most reviewed games
+
+spark:
+  app_name: "SteamReviewETL"
+  master: "local[*]"
+
+sentiment:
+  # Options: vader, textblob
+  engine: "vader"

@@ -1,0 +1,18 @@
+# Database file
+steam_etl.db
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual environment
+venv/
+.env
+
+# Java/Spark junk
+*.jar
+hadoop/
+
+# VS Code
+.vscode/
