@@ -1,4 +1,4 @@
-# 🎮 Steam Review Sentiment ETL Pipeline
+#  Steam Review Sentiment ETL Pipeline
 
 A PySpark-powered ETL pipeline that extracts reviews for the **Top 50 most-reviewed Steam games**, scores them with VADER sentiment analysis, and loads structured results into **PostgreSQL**.
 
